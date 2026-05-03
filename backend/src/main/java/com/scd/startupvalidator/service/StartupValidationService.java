@@ -8,6 +8,7 @@ import com.scd.startupvalidator.repository.StartupValidationRepository;
 import com.scd.startupvalidator.repository.UserRepository;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -17,17 +18,21 @@ public class StartupValidationService {
     private final StartupValidationRepository validationRepository;
     private final UserRepository userRepository;
     private final GroqService groqService;
+    private final ReportGenerationService reportGenerationService;
 
     public StartupValidationService(
             StartupValidationRepository validationRepository,
             UserRepository userRepository,
-            GroqService groqService
+            GroqService groqService,
+            ReportGenerationService reportGenerationService
     ) {
         this.validationRepository = validationRepository;
         this.userRepository = userRepository;
         this.groqService = groqService;
+        this.reportGenerationService = reportGenerationService;
     }
 
+    @Transactional
     public StartupValidationResponse createValidation(StartupValidationRequest request) {
         AppUser user = getLoggedInUser();
         GroqService.AiResult aiResult = groqService.validateStartupIdea(request);
@@ -55,6 +60,16 @@ public class StartupValidationService {
                 .build();
 
         StartupValidation savedValidation = validationRepository.save(validation);
+
+        // Generate report automatically after validation is created
+        try {
+            reportGenerationService.generateAndSaveReport(savedValidation);
+        } catch (Exception e) {
+            // Log the error but don't fail the validation
+            System.err.println("Report generation failed: " + e.getMessage());
+            e.printStackTrace();
+        }
+
         return StartupValidationResponse.fromEntity(savedValidation);
     }
 

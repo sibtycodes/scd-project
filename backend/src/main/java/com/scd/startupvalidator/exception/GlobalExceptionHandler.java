@@ -40,4 +40,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                 .body(new MessageResponse("AI validation service failed: " + exception.getMessage()));
     }
+
+    @ExceptionHandler(ReportGenerationException.class)
+    public ResponseEntity<MessageResponse> handleReportGenerationException(ReportGenerationException exception) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new MessageResponse("Report generation failed: " + exception.getMessage()));
+    }
+
+    @ExceptionHandler(SupabaseUploadException.class)
+    public ResponseEntity<MessageResponse> handleSupabaseUploadException(SupabaseUploadException exception) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(new MessageResponse("Failed to upload report to storage: " + exception.getMessage()));
+    }
 }

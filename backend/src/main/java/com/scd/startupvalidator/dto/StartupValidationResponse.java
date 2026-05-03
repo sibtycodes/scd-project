@@ -30,6 +30,8 @@ public class StartupValidationResponse {
     private String aiFeedback;
     private AiInsights aiInsights;
     private LocalDateTime createdAt;
+    private Long reportId;
+    private String reportUrl;
 
     public static StartupValidationResponse fromEntity(StartupValidation validation) {
         AiInsights insights = AiInsights.fromJson(validation.getAiInsights());
