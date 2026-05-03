@@ -37,6 +37,18 @@ public class StartupValidation {
     @Column(nullable = false)
     private String industry;
 
+    @Column(nullable = false)
+    private String location;
+
+    @Column(nullable = false)
+    private String stage;
+
+    @Column(name = "team_size", nullable = false)
+    private Integer teamSize;
+
+    @Column(name = "funding_stage", nullable = false)
+    private String fundingStage;
+
     @Column(name = "target_audience", nullable = false, columnDefinition = "TEXT")
     private String targetAudience;
 
@@ -46,11 +58,32 @@ public class StartupValidation {
     @Column(name = "proposed_solution", nullable = false, columnDefinition = "TEXT")
     private String proposedSolution;
 
+    @Column(name = "unique_value_proposition", nullable = false, columnDefinition = "TEXT")
+    private String uniqueValueProposition;
+
+    @Column(name = "competition", nullable = false, columnDefinition = "TEXT")
+    private String competition;
+
+    @Column(name = "traction", nullable = false, columnDefinition = "TEXT")
+    private String traction;
+
+    @Column(name = "go_to_market", nullable = false, columnDefinition = "TEXT")
+    private String goToMarket;
+
     @Column(name = "revenue_model", nullable = false, columnDefinition = "TEXT")
     private String revenueModel;
 
+    @Column(name = "pricing", nullable = false, columnDefinition = "TEXT")
+    private String pricing;
+
+    @Column(name = "timeline", nullable = false, columnDefinition = "TEXT")
+    private String timeline;
+
     @Column(name = "ai_feedback", nullable = false, columnDefinition = "TEXT")
     private String aiFeedback;
+
+    @Column(name = "ai_insights", nullable = false, columnDefinition = "TEXT")
+    private String aiInsights;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

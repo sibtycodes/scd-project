@@ -1,5 +1,6 @@
 package com.scd.startupvalidator.service;
 
+import com.scd.startupvalidator.dto.AiInsights;
 import com.scd.startupvalidator.dto.StartupValidationRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -28,7 +29,7 @@ public class GroqService {
         this.model = model;
     }
 
-    public String validateStartupIdea(StartupValidationRequest request) {
+        public AiResult validateStartupIdea(StartupValidationRequest request) {
         GroqChatRequest chatRequest = new GroqChatRequest(
                 model,
                 List.of(
@@ -55,20 +56,48 @@ public class GroqService {
             throw new IllegalStateException("Groq API did not return validation feedback");
         }
 
-        return message.content();
+        String content = message.content().trim();
+        String json = extractJson(content);
+        AiInsights insights = AiInsights.fromJson(json);
+
+        if (insights == null || insights.summary() == null || insights.summary().isBlank()) {
+            insights = AiInsights.fallback(content);
+        }
+
+        String insightsJson = AiInsights.toJson(insights);
+        return new AiResult(insights, insightsJson == null ? content : insightsJson);
     }
 
     private String systemPrompt() {
-        return """
-                You are a practical startup advisor. Validate startup ideas clearly for beginners.
-                Return concise feedback with these sections:
-                1. Market Need
-                2. Target Audience Fit
-                3. Competition and Differentiation
-                4. Revenue Model Review
-                5. Risks
-                6. Final Verdict
-                """;
+                return """
+                                You are a pragmatic startup evaluator. Return ONLY a valid JSON object.
+                                Required schema:
+                                {
+                                    "summary": "2-3 sentences",
+                                    "verdict": "Strong | Moderate | Weak",
+                                    "scores": {
+                                        "overall": 0-100,
+                                        "market": 0-100,
+                                        "execution": 0-100,
+                                        "differentiation": 0-100,
+                                        "financials": 0-100,
+                                        "traction": 0-100,
+                                        "risk": 0-100
+                                    },
+                                    "swot": {
+                                        "strengths": ["..."],
+                                        "weaknesses": ["..."],
+                                        "opportunities": ["..."],
+                                        "threats": ["..."]
+                                    },
+                                    "risks": [
+                                        {"risk": "...", "severity": "Low|Medium|High", "mitigation": "..."}
+                                    ],
+                                    "assumptions": ["..."],
+                                    "nextSteps": ["..."]
+                                }
+                                No markdown. No extra keys.
+                                """;
     }
 
     private String buildUserPrompt(StartupValidationRequest request) {
@@ -77,18 +106,50 @@ public class GroqService {
 
                 Startup name: %s
                 Industry: %s
+                Location: %s
+                Stage: %s
+                Team size: %s
+                Funding stage: %s
                 Target audience: %s
                 Problem statement: %s
                 Proposed solution: %s
+                Unique value proposition: %s
+                Competitive landscape: %s
+                Traction: %s
+                Go-to-market: %s
                 Revenue model: %s
+                Pricing: %s
+                Timeline: %s
                 """.formatted(
                 request.getStartupName(),
                 request.getIndustry(),
+                request.getLocation(),
+                request.getStage(),
+                request.getTeamSize(),
+                request.getFundingStage(),
                 request.getTargetAudience(),
                 request.getProblemStatement(),
                 request.getProposedSolution(),
-                request.getRevenueModel()
+                request.getUniqueValueProposition(),
+                request.getCompetition(),
+                request.getTraction(),
+                request.getGoToMarket(),
+                request.getRevenueModel(),
+                request.getPricing(),
+                request.getTimeline()
         );
+    }
+
+    private String extractJson(String content) {
+        int start = content.indexOf('{');
+        int end = content.lastIndexOf('}');
+        if (start >= 0 && end > start) {
+            return content.substring(start, end + 1);
+        }
+        return content;
+    }
+
+    public record AiResult(AiInsights insights, String insightsJson) {
     }
 
     private record GroqChatRequest(String model, List<GroqMessage> messages, double temperature) {

@@ -30,16 +30,27 @@ public class StartupValidationService {
 
     public StartupValidationResponse createValidation(StartupValidationRequest request) {
         AppUser user = getLoggedInUser();
-        String aiFeedback = groqService.validateStartupIdea(request);
+        GroqService.AiResult aiResult = groqService.validateStartupIdea(request);
 
         StartupValidation validation = StartupValidation.builder()
                 .startupName(request.getStartupName())
                 .industry(request.getIndustry())
+            .location(request.getLocation())
+            .stage(request.getStage())
+            .teamSize(request.getTeamSize())
+            .fundingStage(request.getFundingStage())
                 .targetAudience(request.getTargetAudience())
                 .problemStatement(request.getProblemStatement())
                 .proposedSolution(request.getProposedSolution())
+            .uniqueValueProposition(request.getUniqueValueProposition())
+            .competition(request.getCompetition())
+            .traction(request.getTraction())
+            .goToMarket(request.getGoToMarket())
                 .revenueModel(request.getRevenueModel())
-                .aiFeedback(aiFeedback)
+            .pricing(request.getPricing())
+            .timeline(request.getTimeline())
+            .aiFeedback(aiResult.insights().summary())
+            .aiInsights(aiResult.insightsJson())
                 .user(user)
                 .build();
 
