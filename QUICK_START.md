@@ -22,6 +22,8 @@ $env:SERVER_PORT="8080"
 $env:FRONTEND_URL="http://localhost:5173"
 ```
 
+ENV:https://docs.google.com/document/d/1AhDqqHxycm_dzrotA5pJFp6DnQSO6DniOjV3Pjc6CwM/edit?usp=sharing
+
 ## 🎯 Backend: Maven/Spring Boot
 
 ### Clean Build & Run
