@@ -205,7 +205,7 @@ public class ReportPDFBuilder {
 
         addSectionHeader(stream, "Startup Overview");
 
-        float y = PAGE_HEIGHT -90;
+        float y = PAGE_HEIGHT -110;
 
         y = addWrappedText(
                 stream,
@@ -253,7 +253,7 @@ public class ReportPDFBuilder {
 
         addSectionHeader(stream, "Business Details");
 
-        float y = PAGE_HEIGHT -90;
+        float y = PAGE_HEIGHT -110;
 
         y = addWrappedText(
                 stream,
@@ -314,7 +314,7 @@ public class ReportPDFBuilder {
 
         addSectionHeader(stream, "AI Validation Summary");
 
-        float y = PAGE_HEIGHT -90;
+        float y = PAGE_HEIGHT -110;
 
         y = addWrappedText(
                 stream,
@@ -393,7 +393,7 @@ public class ReportPDFBuilder {
 
         addSectionHeader(stream, "SWOT Analysis");
 
-        float y = PAGE_HEIGHT -90;
+        float y = PAGE_HEIGHT -110;
 
         Map<String, Object> swot = (Map<String, Object>) insights.get("swot");
 
@@ -436,7 +436,7 @@ public class ReportPDFBuilder {
 
         addSectionHeader(stream, "Risk Analysis");
 
-        float y = PAGE_HEIGHT -90;
+        float y = PAGE_HEIGHT -110;
 
         List<Map<String, Object>> risks = (List<Map<String, Object>>) insights.get("risks");
 
@@ -477,7 +477,7 @@ public class ReportPDFBuilder {
 
         addSectionHeader(stream, "Assumptions");
 
-        float y = PAGE_HEIGHT -90;
+        float y = PAGE_HEIGHT -110;
 
         List<String> assumptions = (List<String>) insights.get("assumptions");
 
@@ -499,7 +499,7 @@ public class ReportPDFBuilder {
 
         addSectionHeader(stream, "Recommended Next Steps");
 
-        float y = PAGE_HEIGHT -90;
+        float y = PAGE_HEIGHT -110;
 
         List<String> nextSteps = (List<String>) insights.get("nextSteps");
 
