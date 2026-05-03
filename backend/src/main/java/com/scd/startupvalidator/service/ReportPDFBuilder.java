@@ -519,7 +519,7 @@ public class ReportPDFBuilder {
                 18);
 
         stream.beginText();
-        stream.newLineAtOffset(MARGIN_X, PAGE_HEIGHT - 50);
+        stream.newLineAtOffset(MARGIN_X, PAGE_HEIGHT - 80);
         stream.showText(title);
         stream.endText();
 

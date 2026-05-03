@@ -5,6 +5,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -17,6 +19,8 @@ import java.io.IOException;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final JwtService jwtService;
     private final CustomUserDetailsService userDetailsService;
@@ -35,6 +39,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String authHeader = request.getHeader("Authorization");
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            request.setAttribute("authFailureReason", "Missing or invalid Authorization header");
             filterChain.doFilter(request, response);
             return;
         }
@@ -52,9 +57,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                     authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                } else {
+                    request.setAttribute("authFailureReason", "JWT token failed validation");
+                    logger.warn("JWT validation failed for email={} path={} method={}", email, request.getRequestURI(), request.getMethod());
                 }
             }
-        } catch (JwtException | IllegalArgumentException | UsernameNotFoundException ignored) {
+        } catch (JwtException | IllegalArgumentException | UsernameNotFoundException ex) {
+            request.setAttribute("authFailureReason", ex.getClass().getSimpleName() + ": " + ex.getMessage());
+            logger.warn("JWT authentication error path={} method={} reason={}", request.getRequestURI(), request.getMethod(), ex.getMessage());
             SecurityContextHolder.clearContext();
         }
 
