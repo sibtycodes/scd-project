@@ -1,6 +1,6 @@
--- Supabase/Postgres schema for AI Startup Validator
--- For existing databases, run the ALTER TABLE section after the CREATE TABLE section
+-- AI Startup Validator - Supabase/PostgreSQL Schema
 
+-- USERS TABLE
 create table if not exists users (
   id bigserial primary key,
   username text not null,
@@ -9,6 +9,7 @@ create table if not exists users (
   created_at timestamptz not null default now()
 );
 
+-- STARTUP VALIDATIONS TABLE
 create table if not exists startup_validations (
   id bigserial primary key,
   user_id bigint not null references users(id) on delete cascade,
@@ -36,16 +37,21 @@ create table if not exists startup_validations (
 create index if not exists idx_startup_validations_user_created_at
   on startup_validations (user_id, created_at desc);
 
--- Existing database upgrades (run if startup_validations already exists)
-alter table startup_validations
-  add column if not exists location text,
-  add column if not exists stage text,
-  add column if not exists team_size integer,
-  add column if not exists funding_stage text,
-  add column if not exists unique_value_proposition text,
-  add column if not exists competition text,
-  add column if not exists traction text,
-  add column if not exists go_to_market text,
-  add column if not exists pricing text,
-  add column if not exists timeline text,
-  add column if not exists ai_insights text;
+-- REPORTS TABLE (UPDATED SCHEMA)
+create table if not exists reports (
+  id bigserial primary key,
+  validation_id bigint not null references startup_validations(id) on delete cascade,
+  user_id bigint not null references users(id) on delete cascade,
+  file_name text not null,
+  file_url text not null,
+  file_size bigint,
+  generated_at timestamptz not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_reports_user_created_at
+  on reports (user_id, created_at desc);
+
+create index if not exists idx_reports_validation_id
+  on reports (validation_id);
