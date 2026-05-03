@@ -294,6 +294,54 @@ button:disabled {
   color: #172033;
 }
 
+.report-button {
+  margin-top: 10px;
+  align-items: center;
+  background: linear-gradient(135deg, #f97316, #fb923c);
+  border: 0;
+  border-radius: 8px;
+  color: #ffffff;
+  display: inline-flex;
+  font-weight: 700;
+  gap: 8px;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 16px;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.report-button:hover:not(:disabled) {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.report-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.report-button--disabled {
+  background: #f1f5f9;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+.report-button__note {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 6px;
+  text-transform: uppercase;
+}
+
+.report-button--disabled .report-button__note {
+  background: #e2e8f0;
+  color: #475569;
+}
+
 .alert {
   border-radius: 8px;
   font-weight: 700;
@@ -550,6 +598,8 @@ button:disabled {
 
 .workspace-panel {
   display: grid;
+  
+  grid-column: 1 / -1;
   gap: 24px;
 }
 

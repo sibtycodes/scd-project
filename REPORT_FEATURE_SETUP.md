@@ -109,7 +109,7 @@ Frontend displays report link
 CREATE TABLE reports (
     id BIGSERIAL PRIMARY KEY,
     validation_id BIGINT NOT NULL UNIQUE REFERENCES startup_validations(id),
-    user_id BIGINT NOT NULL REFERENCES app_users(id),
+    user_id BIGINT NOT NULL REFERENCES users(id),
     file_name VARCHAR(255) NOT NULL,
     file_url TEXT NOT NULL,
     file_size BIGINT NOT NULL,

@@ -1,10 +1,14 @@
 package com.scd.startupvalidator.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.scd.startupvalidator.entity.StartupValidation;
 import com.scd.startupvalidator.exception.ReportGenerationException;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayOutputStream;
@@ -25,300 +29,590 @@ public class ReportPDFBuilder {
     private static final float MARGIN_BOTTOM = 44;
     private static final float CONTENT_WIDTH = PAGE_WIDTH - (MARGIN_X * 2);
 
-    /**
-     * Generates a PDF report from AI insights data
-     * @param startupName Name of the startup being validated
-     * @param aiInsights Map containing AI analysis data
-     * @return byte array of PDF document
-     * @throws ReportGenerationException if PDF generation fails
-     */
-    public byte[] generatePDF(String startupName, Map<String, Object> aiInsights) throws ReportGenerationException {
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public byte[] generatePDF(StartupValidation validation)
+            throws ReportGenerationException {
+
         try {
+
+            Map<String, Object> insights = objectMapper.readValue(
+                    validation.getAiInsights(),
+                    new TypeReference<Map<String, Object>>() {
+                    });
+
             PDDocument document = new PDDocument();
-            PDPage page = new PDPage();
-            document.addPage(page);
 
-            // Cover page
-            addCoverPage(document, page, startupName);
+            PDPage coverPage = new PDPage();
+            document.addPage(coverPage);
 
-            // Table of Contents
-            page = addNewPage(document);
-            addTableOfContents(document, page);
+            addCoverPage(document, coverPage, validation);
 
-            // Overview Section
-            page = addNewPage(document);
-            addOverviewSection(document, page, aiInsights);
+            PDPage tocPage = addNewPage(document);
+            addTableOfContents(document, tocPage);
 
-            // Market Analysis Section
-            page = addNewPage(document);
-            addMarketAnalysisSection(document, page, aiInsights);
+            PDPage overviewPage = addNewPage(document);
+            addStartupOverviewSection(
+                    document,
+                    overviewPage,
+                    validation);
 
-            // Competitive Analysis Section
-            page = addNewPage(document);
-            addCompetitiveAnalysisSection(document, page, aiInsights);
+            PDPage businessPage = addNewPage(document);
+            addBusinessDetailsSection(
+                    document,
+                    businessPage,
+                    validation);
 
-            // Risk Analysis Section
-            page = addNewPage(document);
-            addRiskAnalysisSection(document, page, aiInsights);
+            PDPage aiPage = addNewPage(document);
+            addAISummarySection(
+                    document,
+                    aiPage,
+                    validation,
+                    insights);
 
-            // Recommendations Section
-            page = addNewPage(document);
-            addRecommendationsSection(document, page, aiInsights);
+            PDPage swotPage = addNewPage(document);
+            addSWOTSection(
+                    document,
+                    swotPage,
+                    insights);
 
-            // Insights Section
-            page = addNewPage(document);
-            addInsightsSection(document, page, aiInsights);
+            PDPage riskPage = addNewPage(document);
+            addRiskSection(
+                    document,
+                    riskPage,
+                    insights);
 
-            // Convert to byte array
+            PDPage assumptionsPage = addNewPage(document);
+            addAssumptionsSection(
+                    document,
+                    assumptionsPage,
+                    insights);
+
+            PDPage nextStepsPage = addNewPage(document);
+            addNextStepsSection(
+                    document,
+                    nextStepsPage,
+                    insights);
+
             ByteArrayOutputStream output = new ByteArrayOutputStream();
+
             document.save(output);
             document.close();
 
             return output.toByteArray();
 
-        } catch (IOException e) {
-            throw new ReportGenerationException("Failed to generate PDF: " + e.getMessage(), e);
+        } catch (Exception e) {
+            throw new ReportGenerationException(
+                    "Failed to generate PDF report",
+                    e);
         }
     }
 
-    /**
-     * Adds the cover page to the PDF document
-     */
-    private void addCoverPage(PDDocument document, PDPage page, String startupName) throws IOException {
+    private void addCoverPage(
+            PDDocument document,
+            PDPage page,
+            StartupValidation validation) throws IOException {
+
         PDPageContentStream stream = new PDPageContentStream(document, page);
 
-        // Title
         stream.beginText();
-        stream.setFont(PDType1Font.HELVETICA_BOLD, 48);
-        stream.setLeading(60);
-        stream.newLineAtOffset(MARGIN_X, PAGE_HEIGHT - 150);
-        stream.showText("Startup Validation");
-        stream.newLine();
-        stream.showText("Report");
+        stream.setFont(
+                new PDType1Font(
+                        Standard14Fonts.FontName.HELVETICA_BOLD),
+                34);
+        stream.newLineAtOffset(MARGIN_X, PAGE_HEIGHT - 180);
+        stream.showText("Startup Validation Report");
         stream.endText();
 
-        // Startup Name
         stream.beginText();
-        stream.setFont(PDType1Font.HELVETICA, 24);
-        stream.newLineAtOffset(MARGIN_X, PAGE_HEIGHT - 250);
-        stream.showText(startupName);
+        stream.setFont(
+                new PDType1Font(
+                        Standard14Fonts.FontName.HELVETICA),
+                22);
+        stream.newLineAtOffset(MARGIN_X, PAGE_HEIGHT - 260);
+        stream.showText(validation.getStartupName());
         stream.endText();
 
-        // Date
         stream.beginText();
-        stream.setFont(PDType1Font.HELVETICA, 12);
-        stream.newLineAtOffset(MARGIN_X, 100);
-        stream.showText("Generated: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMMM dd, yyyy HH:mm")));
+        stream.setFont(
+                new PDType1Font(
+                        Standard14Fonts.FontName.HELVETICA),
+                14);
+        stream.newLineAtOffset(MARGIN_X, PAGE_HEIGHT - 310);
+        stream.showText("Industry: " + validation.getIndustry());
+        stream.endText();
+
+        stream.beginText();
+        stream.setFont(
+                new PDType1Font(
+                        Standard14Fonts.FontName.HELVETICA),
+                12);
+        stream.newLineAtOffset(MARGIN_X, 80);
+        stream.showText(
+                "Generated: "
+                        + LocalDateTime.now().format(
+                                DateTimeFormatter.ofPattern(
+                                        "MMMM dd, yyyy HH:mm")));
         stream.endText();
 
         stream.close();
     }
 
-    /**
-     * Adds table of contents page
-     */
-    private void addTableOfContents(PDDocument document, PDPage page) throws IOException {
+    private void addTableOfContents(
+            PDDocument document,
+            PDPage page) throws IOException {
+
         PDPageContentStream stream = new PDPageContentStream(document, page);
 
-        stream.beginText();
-        stream.setFont(PDType1Font.HELVETICA_BOLD, 18);
-        stream.newLineAtOffset(MARGIN_X, PAGE_HEIGHT - MARGIN_TOP);
-        stream.showText("Table of Contents");
-        stream.endText();
+        addSectionHeader(stream, "Table of Contents");
 
-        stream.setFont(PDType1Font.HELVETICA, 12);
-        float yPosition = PAGE_HEIGHT - MARGIN_TOP - 40;
+        float y = PAGE_HEIGHT - 120;
 
         String[] sections = {
-            "1. Overview",
-            "2. Market Analysis",
-            "3. Competitive Analysis",
-            "4. Risk Analysis",
-            "5. Recommendations",
-            "6. Insights & Summary"
+                "1. Startup Overview",
+                "2. Business Details",
+                "3. AI Validation Summary",
+                "4. SWOT Analysis",
+                "5. Risk Analysis",
+                "6. Assumptions",
+                "7. Recommended Next Steps"
         };
 
+        stream.setFont(
+                new PDType1Font(
+                        Standard14Fonts.FontName.HELVETICA),
+                12);
+
         for (String section : sections) {
+
             stream.beginText();
-            stream.newLineAtOffset(MARGIN_X + 20, yPosition);
+            stream.newLineAtOffset(MARGIN_X, y);
             stream.showText(section);
             stream.endText();
-            yPosition -= 30;
+
+            y -= 28;
         }
 
         stream.close();
     }
 
-    /**
-     * Adds overview section with AI summary
-     */
-    private void addOverviewSection(PDDocument document, PDPage page, Map<String, Object> aiInsights) throws IOException {
+    private void addStartupOverviewSection(
+            PDDocument document,
+            PDPage page,
+            StartupValidation validation) throws IOException {
+
         PDPageContentStream stream = new PDPageContentStream(document, page);
 
-        addSectionHeader(stream, "Overview");
+        addSectionHeader(stream, "Startup Overview");
 
-        float yPosition = PAGE_HEIGHT - MARGIN_TOP - 80;
-        stream.setFont(PDType1Font.HELVETICA, 11);
+        float y = PAGE_HEIGHT -90;
 
-        String overview = extractText(aiInsights, "overview", "No overview available");
-        yPosition = addWrappedText(stream, overview, yPosition);
+        y = addWrappedText(
+                stream,
+                "Industry: " + validation.getIndustry(),
+                y);
+
+        y = addWrappedText(
+                stream,
+                "Location: " + validation.getLocation(),
+                y);
+
+        y = addWrappedText(
+                stream,
+                "Problem Statement: "
+                        + validation.getProblemStatement(),
+                y);
+
+        y = addWrappedText(
+                stream,
+                "Proposed Solution: "
+                        + validation.getProposedSolution(),
+                y);
+
+        y = addWrappedText(
+                stream,
+                "Target Audience: "
+                        + validation.getTargetAudience(),
+                y);
+
+        y = addWrappedText(
+                stream,
+                "Unique Value Proposition: "
+                        + validation.getUniqueValueProposition(),
+                y);
 
         stream.close();
     }
 
-    /**
-     * Adds market analysis section
-     */
-    private void addMarketAnalysisSection(PDDocument document, PDPage page, Map<String, Object> aiInsights) throws IOException {
+    private void addBusinessDetailsSection(
+            PDDocument document,
+            PDPage page,
+            StartupValidation validation) throws IOException {
+
         PDPageContentStream stream = new PDPageContentStream(document, page);
 
-        addSectionHeader(stream, "Market Analysis");
+        addSectionHeader(stream, "Business Details");
 
-        float yPosition = PAGE_HEIGHT - MARGIN_TOP - 80;
-        stream.setFont(PDType1Font.HELVETICA, 11);
+        float y = PAGE_HEIGHT -90;
 
-        String marketSize = extractText(aiInsights, "marketSize", "N/A");
-        String marketGrowth = extractText(aiInsights, "marketGrowth", "N/A");
-        String targetMarket = extractText(aiInsights, "targetMarket", "No data");
+        y = addWrappedText(
+                stream,
+                "Stage: " + validation.getStage(),
+                y);
 
-        yPosition = addWrappedText(stream, "Market Size: " + marketSize, yPosition);
-        yPosition = addWrappedText(stream, "Market Growth: " + marketGrowth, yPosition);
-        yPosition = addWrappedText(stream, "Target Market: " + targetMarket, yPosition);
+        y = addWrappedText(
+                stream,
+                "Team Size: " + validation.getTeamSize(),
+                y);
+
+        y = addWrappedText(
+                stream,
+                "Funding Stage: "
+                        + validation.getFundingStage(),
+                y);
+
+        y = addWrappedText(
+                stream,
+                "Revenue Model: "
+                        + validation.getRevenueModel(),
+                y);
+
+        y = addWrappedText(
+                stream,
+                "Pricing: "
+                        + validation.getPricing(),
+                y);
+
+        y = addWrappedText(
+                stream,
+                "Timeline: "
+                        + validation.getTimeline(),
+                y);
+
+        y = addWrappedText(
+                stream,
+                "Traction: "
+                        + validation.getTraction(),
+                y);
+
+        y = addWrappedText(
+                stream,
+                "Go To Market: "
+                        + validation.getGoToMarket(),
+                y);
 
         stream.close();
     }
 
-    /**
-     * Adds competitive analysis section
-     */
-    private void addCompetitiveAnalysisSection(PDDocument document, PDPage page, Map<String, Object> aiInsights) throws IOException {
+    private void addAISummarySection(
+            PDDocument document,
+            PDPage page,
+            StartupValidation validation,
+            Map<String, Object> insights) throws IOException {
+
         PDPageContentStream stream = new PDPageContentStream(document, page);
 
-        addSectionHeader(stream, "Competitive Analysis");
+        addSectionHeader(stream, "AI Validation Summary");
 
-        float yPosition = PAGE_HEIGHT - MARGIN_TOP - 80;
-        stream.setFont(PDType1Font.HELVETICA, 11);
+        float y = PAGE_HEIGHT -90;
 
-        String competitors = extractText(aiInsights, "competitors", "No competitor data available");
-        String competitive = extractText(aiInsights, "competitiveAdvantage", "N/A");
+        y = addWrappedText(
+                stream,
+                "AI Feedback: "
+                        + validation.getAiFeedback(),
+                y);
 
-        yPosition = addWrappedText(stream, "Competitors: " + competitors, yPosition);
-        yPosition = addWrappedText(stream, "Competitive Advantage: " + competitive, yPosition);
+        y = addWrappedText(
+                stream,
+                "Summary: "
+                        + extractText(insights, "summary"),
+                y);
+
+        y = addWrappedText(
+                stream,
+                "Verdict: "
+                        + extractText(insights, "verdict"),
+                y);
+
+        Map<String, Object> scores = (Map<String, Object>) insights.get("scores");
+
+        if (scores != null) {
+
+            y = addWrappedText(
+                    stream,
+                    "Overall Score: "
+                            + scores.get("overall"),
+                    y);
+
+            y = addWrappedText(
+                    stream,
+                    "Market Score: "
+                            + scores.get("market"),
+                    y);
+
+            y = addWrappedText(
+                    stream,
+                    "Execution Score: "
+                            + scores.get("execution"),
+                    y);
+
+            y = addWrappedText(
+                    stream,
+                    "Differentiation Score: "
+                            + scores.get("differentiation"),
+                    y);
+
+            y = addWrappedText(
+                    stream,
+                    "Financial Score: "
+                            + scores.get("financials"),
+                    y);
+
+            y = addWrappedText(
+                    stream,
+                    "Traction Score: "
+                            + scores.get("traction"),
+                    y);
+
+            y = addWrappedText(
+                    stream,
+                    "Risk Score: "
+                            + scores.get("risk"),
+                    y);
+        }
 
         stream.close();
     }
 
-    /**
-     * Adds risk analysis section
-     */
-    private void addRiskAnalysisSection(PDDocument document, PDPage page, Map<String, Object> aiInsights) throws IOException {
+    private void addSWOTSection(
+            PDDocument document,
+            PDPage page,
+            Map<String, Object> insights) throws IOException {
+
+        PDPageContentStream stream = new PDPageContentStream(document, page);
+
+        addSectionHeader(stream, "SWOT Analysis");
+
+        float y = PAGE_HEIGHT -90;
+
+        Map<String, Object> swot = (Map<String, Object>) insights.get("swot");
+
+        if (swot != null) {
+
+            y = addListSection(
+                    stream,
+                    "Strengths",
+                    (List<String>) swot.get("strengths"),
+                    y);
+
+            y = addListSection(
+                    stream,
+                    "Weaknesses",
+                    (List<String>) swot.get("weaknesses"),
+                    y);
+
+            y = addListSection(
+                    stream,
+                    "Opportunities",
+                    (List<String>) swot.get("opportunities"),
+                    y);
+
+            y = addListSection(
+                    stream,
+                    "Threats",
+                    (List<String>) swot.get("threats"),
+                    y);
+        }
+
+        stream.close();
+    }
+
+    private void addRiskSection(
+            PDDocument document,
+            PDPage page,
+            Map<String, Object> insights) throws IOException {
+
         PDPageContentStream stream = new PDPageContentStream(document, page);
 
         addSectionHeader(stream, "Risk Analysis");
 
-        float yPosition = PAGE_HEIGHT - MARGIN_TOP - 80;
-        stream.setFont(PDType1Font.HELVETICA, 11);
+        float y = PAGE_HEIGHT -90;
 
-        String risks = extractText(aiInsights, "risks", "No risk analysis available");
-        String mitigation = extractText(aiInsights, "riskMitigation", "No mitigation strategies");
+        List<Map<String, Object>> risks = (List<Map<String, Object>>) insights.get("risks");
 
-        yPosition = addWrappedText(stream, "Identified Risks: " + risks, yPosition);
-        yPosition = addWrappedText(stream, "Risk Mitigation: " + mitigation, yPosition);
+        if (risks != null) {
 
-        stream.close();
-    }
+            for (Map<String, Object> risk : risks) {
 
-    /**
-     * Adds recommendations section
-     */
-    private void addRecommendationsSection(PDDocument document, PDPage page, Map<String, Object> aiInsights) throws IOException {
-        PDPageContentStream stream = new PDPageContentStream(document, page);
+                y = addWrappedText(
+                        stream,
+                        "Risk: " + risk.get("risk"),
+                        y);
 
-        addSectionHeader(stream, "Recommendations");
+                y = addWrappedText(
+                        stream,
+                        "Severity: "
+                                + risk.get("severity"),
+                        y);
 
-        float yPosition = PAGE_HEIGHT - MARGIN_TOP - 80;
-        stream.setFont(PDType1Font.HELVETICA, 11);
+                y = addWrappedText(
+                        stream,
+                        "Mitigation: "
+                                + risk.get("mitigation"),
+                        y);
 
-        String recommendations = extractText(aiInsights, "recommendations", "No recommendations available");
-        yPosition = addWrappedText(stream, recommendations, yPosition);
-
-        stream.close();
-    }
-
-    /**
-     * Adds insights and summary section
-     */
-    private void addInsightsSection(PDDocument document, PDPage page, Map<String, Object> aiInsights) throws IOException {
-        PDPageContentStream stream = new PDPageContentStream(document, page);
-
-        addSectionHeader(stream, "Insights & Summary");
-
-        float yPosition = PAGE_HEIGHT - MARGIN_TOP - 80;
-        stream.setFont(PDType1Font.HELVETICA, 11);
-
-        String summary = extractText(aiInsights, "summary", "No summary available");
-        String score = extractText(aiInsights, "opportunityScore", "N/A");
-
-        yPosition = addWrappedText(stream, "Summary: " + summary, yPosition);
-        yPosition = addWrappedText(stream, "Opportunity Score: " + score, yPosition);
-
-        stream.close();
-    }
-
-    /**
-     * Helper method to add section headers with underline
-     */
-    private void addSectionHeader(PDPageContentStream stream, String title) throws IOException {
-        stream.setFont(PDType1Font.HELVETICA_BOLD, 18);
-        stream.beginText();
-        stream.newLineAtOffset(MARGIN_X, PAGE_HEIGHT - MARGIN_TOP - 30);
-        stream.showText(title);
-        stream.endText();
-
-        // Add horizontal line
-        stream.setLineWidth(1);
-        stream.moveTo(MARGIN_X, PAGE_HEIGHT - MARGIN_TOP - 40);
-        stream.lineTo(PAGE_WIDTH - MARGIN_X, PAGE_HEIGHT - MARGIN_TOP - 40);
-        stream.stroke();
-    }
-
-    /**
-     * Helper method to add wrapped text and return next Y position
-     */
-    private float addWrappedText(PDPageContentStream stream, String text, float yPosition) throws IOException {
-        List<String> lines = wrapText(text, CONTENT_WIDTH, 11);
-
-        for (String line : lines) {
-            stream.beginText();
-            stream.newLineAtOffset(MARGIN_X, yPosition);
-            stream.showText(line);
-            stream.endText();
-            yPosition -= 15;
-
-            if (yPosition < MARGIN_BOTTOM + 20) {
-                yPosition = PAGE_HEIGHT - MARGIN_TOP - 30;
+                y -= 10;
             }
         }
 
-        return yPosition - 10;
+        stream.close();
     }
 
-    /**
-     * Helper method to wrap text to fit within max width
-     */
-    private List<String> wrapText(String text, float maxWidth, float fontSize) {
+    private void addAssumptionsSection(
+            PDDocument document,
+            PDPage page,
+            Map<String, Object> insights) throws IOException {
+
+        PDPageContentStream stream = new PDPageContentStream(document, page);
+
+        addSectionHeader(stream, "Assumptions");
+
+        float y = PAGE_HEIGHT -90;
+
+        List<String> assumptions = (List<String>) insights.get("assumptions");
+
+        y = addListSection(
+                stream,
+                "Key Assumptions",
+                assumptions,
+                y);
+
+        stream.close();
+    }
+
+    private void addNextStepsSection(
+            PDDocument document,
+            PDPage page,
+            Map<String, Object> insights) throws IOException {
+
+        PDPageContentStream stream = new PDPageContentStream(document, page);
+
+        addSectionHeader(stream, "Recommended Next Steps");
+
+        float y = PAGE_HEIGHT -90;
+
+        List<String> nextSteps = (List<String>) insights.get("nextSteps");
+
+        y = addListSection(
+                stream,
+                "Next Steps",
+                nextSteps,
+                y);
+
+        stream.close();
+    }
+
+    private void addSectionHeader(PDPageContentStream stream, String title) throws IOException {
+
+        stream.setFont(
+                new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD),
+                18);
+
+        stream.beginText();
+        stream.newLineAtOffset(MARGIN_X, PAGE_HEIGHT - 50);
+        stream.showText(title);
+        stream.endText();
+
+        stream.setLineWidth(1f);
+        stream.moveTo(MARGIN_X, PAGE_HEIGHT - 65);
+        stream.lineTo(PAGE_WIDTH - MARGIN_X, PAGE_HEIGHT - 65);
+        stream.stroke();
+    }
+
+    private float addWrappedText(
+            PDPageContentStream stream,
+            String text,
+            float y) throws IOException {
+
+        List<String> lines = wrapText(text, CONTENT_WIDTH, 11);
+
+        stream.setFont(
+                new PDType1Font(
+                        Standard14Fonts.FontName.HELVETICA),
+                11);
+
+        for (String line : lines) {
+
+            stream.beginText();
+            stream.newLineAtOffset(MARGIN_X, y);
+            stream.showText(line);
+            stream.endText();
+
+            y -= 16;
+        }
+
+        return y - 10;
+    }
+
+    private float addListSection(
+            PDPageContentStream stream,
+            String title,
+            List<String> items,
+            float y) throws IOException {
+
+        if (items == null) {
+            return y;
+        }
+
+        y = addWrappedText(
+                stream,
+                title + ":",
+                y);
+
+        for (String item : items) {
+
+            y = addWrappedText(
+                    stream,
+                    "- " + item,
+                    y);
+        }
+
+        return y;
+    }
+
+    private List<String> wrapText(
+            String text,
+            float maxWidth,
+            float fontSize) {
+
         List<String> lines = new ArrayList<>();
+
+        if (text == null) {
+            return lines;
+        }
+
         String[] words = text.split(" ");
+
         StringBuilder currentLine = new StringBuilder();
 
         for (String word : words) {
-            if (currentLine.length() == 0) {
-                currentLine.append(word);
-            } else if ((currentLine.length() + 1 + word.length()) * fontSize * 0.5 < maxWidth) {
-                currentLine.append(" ").append(word);
-            } else {
+
+            String testLine = currentLine + " " + word;
+
+            float estimatedWidth = testLine.length() * fontSize * 0.5f;
+
+            if (estimatedWidth > maxWidth) {
+
                 lines.add(currentLine.toString());
                 currentLine = new StringBuilder(word);
+
+            } else {
+
+                if (currentLine.length() == 0) {
+                    currentLine.append(word);
+                } else {
+                    currentLine.append(" ").append(word);
+                }
             }
         }
 
@@ -329,316 +623,27 @@ public class ReportPDFBuilder {
         return lines;
     }
 
-    /**
-     * Helper method to add a new page to document
-     */
-    private PDPage addNewPage(PDDocument document) {
+    private PDPage addNewPage(
+            PDDocument document) {
+
         PDPage page = new PDPage();
         document.addPage(page);
+
         return page;
     }
 
-    /**
-     * Helper method to extract text from map with fallback
-     */
-    private String extractText(Map<String, Object> data, String key, String fallback) {
-        try {
-            Object value = data.get(key);
-            if (value != null) {
-                if (value instanceof String) {
-                    return (String) value;
-                }
-                return value.toString();
-            }
-        } catch (Exception e) {
-            // Return fallback on error
-        }
-        return fallback;
-    }
-}
+    private String extractText(
+            Map<String, Object> map,
+            String key) {
 
-        try {
-            PDDocument document = new PDDocument();
-            PDPage page = new PDPage();
-            document.addPage(page);
-
-            // Cover page
-            addCoverPage(document, page, startupName);
-
-            // Table of Contents
-            page = addNewPage(document);
-            addTableOfContents(document, page);
-
-            // Overview Section
-            page = addNewPage(document);
-            addOverviewSection(document, page, aiInsights);
-
-            // Market Analysis Section
-            page = addNewPage(document);
-            addMarketAnalysisSection(document, page, aiInsights);
-
-            // Competitive Analysis Section
-            page = addNewPage(document);
-            addCompetitiveAnalysisSection(document, page, aiInsights);
-
-            // Risk Analysis Section
-            page = addNewPage(document);
-            addRiskAnalysisSection(document, page, aiInsights);
-
-            // Recommendations Section
-            page = addNewPage(document);
-            addRecommendationsSection(document, page, aiInsights);
-
-            // Insights Section
-            page = addNewPage(document);
-            addInsightsSection(document, page, aiInsights);
-
-            // Convert to byte array
-            ByteArrayOutputStream output = new ByteArrayOutputStream();
-            document.save(output);
-            document.close();
-
-            return output.toByteArray();
-
-        } catch (IOException e) {
-            throw new ReportGenerationException("Failed to generate PDF: " + e.getMessage(), e);
-        }
-    }
-
-    private void addCoverPage(PDDocument document, PDPage page, String startupName) throws IOException {
-        PDPageContentStream stream = new PDPageContentStream(document, page);
-
-        // Title
-        stream.beginText();
-        stream.setFont(PDType1Font.HELVETICA_BOLD, 48);
-        stream.setLeading(60);
-        stream.newLineAtOffset(MARGIN_X, PAGE_HEIGHT - 150);
-        stream.showText("Startup Validation");
-        stream.newLine();
-        stream.showText("Report");
-        stream.endText();
-
-        // Startup Name
-        stream.beginText();
-        stream.setFont(PDType1Font.HELVETICA, 24);
-        stream.newLineAtOffset(MARGIN_X, PAGE_HEIGHT - 250);
-        stream.showText(startupName);
-        stream.endText();
-
-        // Date
-        stream.beginText();
-        stream.setFont(PDType1Font.HELVETICA, 12);
-        stream.newLineAtOffset(MARGIN_X, 100);
-        stream.showText("Generated: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMMM dd, yyyy HH:mm")));
-        stream.endText();
-
-        stream.close();
-    }
-
-    private void addTableOfContents(PDDocument document, PDPage page) throws IOException {
-        PDPageContentStream stream = new PDPageContentStream(document, page);
-
-        stream.beginText();
-        stream.setFont(PDType1Font.HELVETICA_BOLD, 18);
-        stream.newLineAtOffset(MARGIN_X, PAGE_HEIGHT - MARGIN_TOP);
-        stream.showText("Table of Contents");
-        stream.endText();
-
-        stream.setFont(PDType1Font.HELVETICA, 12);
-        float yPosition = PAGE_HEIGHT - MARGIN_TOP - 40;
-
-        String[] sections = {
-            "1. Overview",
-            "2. Market Analysis",
-            "3. Competitive Analysis",
-            "4. Risk Analysis",
-            "5. Recommendations",
-            "6. Insights & Summary"
-        };
-
-        for (String section : sections) {
-            stream.beginText();
-            stream.newLineAtOffset(MARGIN_X + 20, yPosition);
-            stream.showText(section);
-            stream.endText();
-            yPosition -= 30;
+        if (map == null || key == null) {
+            return "N/A";
         }
 
-        stream.close();
-    }
+        Object value = map.get(key);
 
-    private void addOverviewSection(PDDocument document, PDPage page, Map<String, Object> aiInsights) throws IOException {
-        PDPageContentStream stream = new PDPageContentStream(document, page);
-
-        addSectionHeader(stream, "Overview");
-
-        float yPosition = PAGE_HEIGHT - MARGIN_TOP - 80;
-        stream.setFont(PDType1Font.HELVETICA, 11);
-
-        String overview = extractText(aiInsights, "overview", "No overview available");
-        yPosition = addWrappedText(stream, overview, yPosition);
-
-        stream.close();
-    }
-
-    private void addMarketAnalysisSection(PDDocument document, PDPage page, Map<String, Object> aiInsights) throws IOException {
-        PDPageContentStream stream = new PDPageContentStream(document, page);
-
-        addSectionHeader(stream, "Market Analysis");
-
-        float yPosition = PAGE_HEIGHT - MARGIN_TOP - 80;
-        stream.setFont(PDType1Font.HELVETICA, 11);
-
-        String marketSize = extractText(aiInsights, "marketSize", "N/A");
-        String marketGrowth = extractText(aiInsights, "marketGrowth", "N/A");
-        String targetMarket = extractText(aiInsights, "targetMarket", "No data");
-
-        yPosition = addWrappedText(stream, "Market Size: " + marketSize, yPosition);
-        yPosition = addWrappedText(stream, "Market Growth: " + marketGrowth, yPosition);
-        yPosition = addWrappedText(stream, "Target Market: " + targetMarket, yPosition);
-
-        stream.close();
-    }
-
-    private void addCompetitiveAnalysisSection(PDDocument document, PDPage page, Map<String, Object> aiInsights) throws IOException {
-        PDPageContentStream stream = new PDPageContentStream(document, page);
-
-        addSectionHeader(stream, "Competitive Analysis");
-
-        float yPosition = PAGE_HEIGHT - MARGIN_TOP - 80;
-        stream.setFont(PDType1Font.HELVETICA, 11);
-
-        String competitors = extractText(aiInsights, "competitors", "No competitor data available");
-        String competitive = extractText(aiInsights, "competitiveAdvantage", "N/A");
-
-        yPosition = addWrappedText(stream, "Competitors: " + competitors, yPosition);
-        yPosition = addWrappedText(stream, "Competitive Advantage: " + competitive, yPosition);
-
-        stream.close();
-    }
-
-    private void addRiskAnalysisSection(PDDocument document, PDPage page, Map<String, Object> aiInsights) throws IOException {
-        PDPageContentStream stream = new PDPageContentStream(document, page);
-
-        addSectionHeader(stream, "Risk Analysis");
-
-        float yPosition = PAGE_HEIGHT - MARGIN_TOP - 80;
-        stream.setFont(PDType1Font.HELVETICA, 11);
-
-        String risks = extractText(aiInsights, "risks", "No risk analysis available");
-        String mitigation = extractText(aiInsights, "riskMitigation", "No mitigation strategies");
-
-        yPosition = addWrappedText(stream, "Identified Risks: " + risks, yPosition);
-        yPosition = addWrappedText(stream, "Risk Mitigation: " + mitigation, yPosition);
-
-        stream.close();
-    }
-
-    private void addRecommendationsSection(PDDocument document, PDPage page, Map<String, Object> aiInsights) throws IOException {
-        PDPageContentStream stream = new PDPageContentStream(document, page);
-
-        addSectionHeader(stream, "Recommendations");
-
-        float yPosition = PAGE_HEIGHT - MARGIN_TOP - 80;
-        stream.setFont(PDType1Font.HELVETICA, 11);
-
-        String recommendations = extractText(aiInsights, "recommendations", "No recommendations available");
-        yPosition = addWrappedText(stream, recommendations, yPosition);
-
-        stream.close();
-    }
-
-    private void addInsightsSection(PDDocument document, PDPage page, Map<String, Object> aiInsights) throws IOException {
-        PDPageContentStream stream = new PDPageContentStream(document, page);
-
-        addSectionHeader(stream, "Insights & Summary");
-
-        float yPosition = PAGE_HEIGHT - MARGIN_TOP - 80;
-        stream.setFont(PDType1Font.HELVETICA, 11);
-
-        String summary = extractText(aiInsights, "summary", "No summary available");
-        String score = extractText(aiInsights, "opportunityScore", "N/A");
-
-        yPosition = addWrappedText(stream, "Summary: " + summary, yPosition);
-        yPosition = addWrappedText(stream, "Opportunity Score: " + score, yPosition);
-
-        stream.close();
-    }
-
-    private void addSectionHeader(PDPageContentStream stream, String title) throws IOException {
-        stream.setFont(PDType1Font.HELVETICA_BOLD, 18);
-        stream.beginText();
-        stream.newLineAtOffset(MARGIN_X, PAGE_HEIGHT - MARGIN_TOP - 30);
-        stream.showText(title);
-        stream.endText();
-
-        // Add horizontal line
-        stream.setLineWidth(1);
-        stream.moveTo(MARGIN_X, PAGE_HEIGHT - MARGIN_TOP - 40);
-        stream.lineTo(PAGE_WIDTH - MARGIN_X, PAGE_HEIGHT - MARGIN_TOP - 40);
-        stream.stroke();
-    }
-
-    private float addWrappedText(PDPageContentStream stream, String text, float yPosition) throws IOException {
-        List<String> lines = wrapText(text, CONTENT_WIDTH, 11);
-
-        for (String line : lines) {
-            stream.beginText();
-            stream.newLineAtOffset(MARGIN_X, yPosition);
-            stream.showText(line);
-            stream.endText();
-            yPosition -= 15;
-
-            if (yPosition < MARGIN_BOTTOM + 20) {
-                yPosition = PAGE_HEIGHT - MARGIN_TOP - 30;
-                // In a real implementation, would create new page here
-            }
-        }
-
-        return yPosition - 10;
-    }
-
-    private List<String> wrapText(String text, float maxWidth, float fontSize) {
-        List<String> lines = new ArrayList<>();
-        String[] words = text.split(" ");
-        StringBuilder currentLine = new StringBuilder();
-
-        for (String word : words) {
-            if (currentLine.length() == 0) {
-                currentLine.append(word);
-            } else if ((currentLine.length() + 1 + word.length()) * fontSize * 0.5 < maxWidth) {
-                currentLine.append(" ").append(word);
-            } else {
-                lines.add(currentLine.toString());
-                currentLine = new StringBuilder(word);
-            }
-        }
-
-        if (currentLine.length() > 0) {
-            lines.add(currentLine.toString());
-        }
-
-        return lines;
-    }
-
-    private PDPage addNewPage(PDDocument document) {
-        PDPage page = new PDPage();
-        document.addPage(page);
-        return page;
-    }
-
-    private String extractText(Map<String, Object> data, String key, String fallback) {
-        try {
-            Object value = data.get(key);
-            if (value != null) {
-                if (value instanceof String) {
-                    return (String) value;
-                }
-                return value.toString();
-            }
-        } catch (Exception e) {
-            // Fallback to default
-        }
-        return fallback;
+        return value != null
+                ? value.toString()
+                : "N/A";
     }
 }

@@ -494,7 +494,7 @@ function DashboardPage() {
           {latestInsights && <InsightsPanel insights={latestInsights} />}
         </section>
 
-        <aside className="history-panel">
+        {/* <aside className="history-panel">
           <div className="section-heading">
             <h2>Validation workspace</h2>
             <p>Jump into your saved reports and trends.</p>
@@ -507,7 +507,7 @@ function DashboardPage() {
             </Link>
             
           </div>
-        </aside>
+        </aside> */}
       </main>
 
       <div className="demo-fab" aria-live="polite">

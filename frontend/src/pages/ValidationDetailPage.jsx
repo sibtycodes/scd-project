@@ -8,6 +8,7 @@ function ValidationDetailPage() {
   const [validation, setValidation] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [downloadingReport, setDownloadingReport] = useState(false);
 
   const insights = validation?.aiInsights;
   const overallScore = insights?.scores?.overall;
@@ -26,7 +27,9 @@ function ValidationDetailPage() {
       try {
         const response = await api.get(`/validations/${id}`);
         setValidation(response.data);
+        console.log('Validation loaded:', response.data);
       } catch (err) {
+        console.error('Error loading validation:', err);
         setError(err.response?.data?.message || 'Could not load validation');
       } finally {
         setLoading(false);
@@ -35,6 +38,41 @@ function ValidationDetailPage() {
 
     loadValidation();
   }, [id]);
+
+  const handleDownloadReport = async () => {
+    if (!validation) {
+      console.warn('No validation data available');
+      return;
+    }
+
+    setDownloadingReport(true);
+
+    try {
+      const reportResponse = await api.post(`/reports/generate/${id}`);
+      const reportUrl = reportResponse.data.fileUrl;
+
+      if (!reportUrl) {
+        throw new Error('Report URL not available');
+      }
+
+      // Download the report
+      const link = document.createElement('a');
+      link.href = reportUrl;
+      link.download = `${validation.startupName}_validation_report.pdf`;
+      link.target = '_blank';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+    } catch (err) {
+      console.error('Error:', err);
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to generate report';
+      setError(`Report generation failed: ${errorMessage}`);
+    } finally {
+      setDownloadingReport(false);
+    }
+  };
 
   return (
     <main className="detail-layout">
@@ -63,11 +101,11 @@ function ValidationDetailPage() {
                   <button
                     className="report-button"
                     type="button"
-                    aria-disabled="true"
-                    title="Download report (coming soon)"
+                    onClick={handleDownloadReport}
+                    disabled={downloadingReport}
+                    title={downloadingReport ? "Generating and downloading..." : "Generate & download PDF report"}
                   >
-                    Download report
-                    <span className="report-button__note">Coming soon</span>
+                    {downloadingReport ? 'Generating & downloading...' : 'Download report'}
                   </button>
                 </div>
               </div>

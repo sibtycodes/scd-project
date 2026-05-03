@@ -10,17 +10,42 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface ReportRepository extends JpaRepository<Report, Long> {
+public interface ReportRepository
+        extends JpaRepository<Report, Long> {
 
-    Optional<Report> findByValidation(StartupValidation validation);
+    Optional<Report> findByValidation(
+            StartupValidation validation
+    );
 
-    Optional<Report> findByValidationAndUser(StartupValidation validation, AppUser user);
+    Optional<Report> findByValidationAndUser(
+            StartupValidation validation,
+            AppUser user
+    );
 
-    Optional<Report> findByIdAndUser(Long id, AppUser user);
+    Optional<Report> findByIdAndUser(
+            Long id,
+            AppUser user
+    );
 
-    List<Report> findByUserOrderByGeneratedAtDesc(AppUser user);
+    Optional<Report> findByValidationIdAndUser(
+            Long validationId,
+            AppUser user
+    );
 
-    List<Report> findByValidationUser(AppUser user);
+    List<Report> findByUserOrderByGeneratedAtDesc(
+            AppUser user
+    );
 
-    boolean existsByValidation(StartupValidation validation);
+    List<Report> findByUser(
+            AppUser user
+    );
+
+    boolean existsByValidation(
+            StartupValidation validation
+    );
+
+    boolean existsByValidationAndUser(
+            StartupValidation validation,
+            AppUser user
+    );
 }

@@ -1,6 +1,5 @@
 package com.scd.startupvalidator.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.scd.startupvalidator.dto.ReportResponse;
 import com.scd.startupvalidator.entity.AppUser;
 import com.scd.startupvalidator.entity.Report;
@@ -21,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -31,7 +29,6 @@ public class ReportGenerationService {
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
     private final OkHttpClient httpClient;
-    private final ObjectMapper objectMapper;
 
     @Value("${supabase.url}")
     private String supabaseUrl;
@@ -49,45 +46,50 @@ public class ReportGenerationService {
             ReportPDFBuilder pdfBuilder,
             ReportRepository reportRepository,
             UserRepository userRepository,
-            OkHttpClient httpClient,
-            ObjectMapper objectMapper
+            OkHttpClient httpClient
     ) {
         this.pdfBuilder = pdfBuilder;
         this.reportRepository = reportRepository;
         this.userRepository = userRepository;
         this.httpClient = httpClient;
-        this.objectMapper = objectMapper;
     }
 
     @Transactional
-    public ReportResponse generateAndSaveReport(StartupValidation validation) throws ReportGenerationException, SupabaseUploadException {
+    public ReportResponse generateAndSaveReport(
+            StartupValidation validation
+    ) throws ReportGenerationException, SupabaseUploadException {
+
         AppUser user = getLoggedInUser();
 
-        // Check if report already exists
         if (reportRepository.existsByValidation(validation)) {
-            Report existingReport = reportRepository.findByValidation(validation)
-                    .orElseThrow(() -> new ReportGenerationException("Report exists but could not be retrieved"));
+
+            Report existingReport =
+                    reportRepository.findByValidation(validation)
+                            .orElseThrow(() ->
+                                    new ReportGenerationException(
+                                            "Existing report could not be retrieved"
+                                    )
+                            );
+
             return ReportResponse.fromEntity(existingReport);
         }
 
-        // Parse AI insights
-        Map<String, Object> aiInsights;
-        try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> parsedInsights = objectMapper.readValue(validation.getAiInsights(), Map.class);
-            aiInsights = parsedInsights;
-        } catch (Exception e) {
-            throw new ReportGenerationException("Failed to parse AI insights: " + e.getMessage(), e);
+        if (validation.getAiInsights() == null
+                || validation.getAiInsights().isBlank()) {
+
+            throw new ReportGenerationException(
+                    "AI insights are missing for this validation"
+            );
         }
 
-        // Generate PDF
-        byte[] pdfBytes = pdfBuilder.generatePDF(validation.getStartupName(), aiInsights);
+        byte[] pdfBytes = pdfBuilder.generatePDF(validation);
 
-        // Upload to Supabase
-        String fileName = generateFileName(validation.getStartupName());
-        String fileUrl = uploadToSupabase(pdfBytes, fileName);
+        String fileName =
+                generateFileName(validation.getStartupName());
 
-        // Save report record
+        String fileUrl =
+                uploadToSupabase(pdfBytes, fileName);
+
         Report report = Report.builder()
                 .validation(validation)
                 .user(user)
@@ -97,67 +99,172 @@ public class ReportGenerationService {
                 .generatedAt(LocalDateTime.now())
                 .build();
 
-        Report savedReport = reportRepository.save(report);
+        Report savedReport =
+                reportRepository.save(report);
+
         return ReportResponse.fromEntity(savedReport);
     }
 
-    public String uploadToSupabase(byte[] pdfBytes, String fileName) throws SupabaseUploadException {
+    public String uploadToSupabase(
+            byte[] pdfBytes,
+            String fileName
+    ) throws SupabaseUploadException {
+
         try {
-            String uploadUrl = String.format("%s/storage/v1/object/%s/%s", supabaseUrl, bucketName, fileName);
 
-            RequestBody requestBody = RequestBody.create(pdfBytes, MediaType.parse("application/pdf"));
+            String uploadUrl =
+                    String.format(
+                            "%s/storage/v1/object/%s/%s",
+                            supabaseUrl,
+                            bucketName,
+                            fileName
+                    );
 
-            Request request = new Request.Builder()
-                    .url(uploadUrl)
-                    .post(requestBody)
-                    .addHeader("Authorization", "Bearer " + supabaseKey)
-                    .addHeader("Content-Type", "application/pdf")
-                    .build();
+            RequestBody requestBody =
+                    RequestBody.create(
+                            pdfBytes,
+                            MediaType.parse("application/pdf")
+                    );
 
-            try (Response response = httpClient.newCall(request).execute()) {
+            Request request =
+                    new Request.Builder()
+                            .url(uploadUrl)
+                            .post(requestBody)
+                            .addHeader(
+                                    "Authorization",
+                                    "Bearer " + supabaseKey
+                            )
+                            .addHeader(
+                                    "apikey",
+                                    supabaseKey
+                            )
+                            .addHeader(
+                                    "Content-Type",
+                                    "application/pdf"
+                            )
+                            .addHeader(
+                                    "x-upsert",
+                                    "true"
+                            )
+                            .build();
+
+            try (Response response =
+                         httpClient.newCall(request).execute()) {
+
                 if (!response.isSuccessful()) {
-                    String errorBody = response.body() != null ? response.body().string() : "Unknown error";
+
+                    String errorBody =
+                            response.body() != null
+                                    ? response.body().string()
+                                    : "Unknown upload error";
+
                     throw new SupabaseUploadException(
-                        String.format("Supabase upload failed (HTTP %d): %s", response.code(), errorBody)
+                            "Supabase upload failed. HTTP "
+                                    + response.code()
+                                    + " - "
+                                    + errorBody
                     );
                 }
             }
 
-            // Return public URL
-            return String.format("%s/storage/v1/object/public/%s/%s", supabaseUrl, bucketName, fileName);
+            return String.format(
+                    "%s/storage/v1/object/public/%s/%s",
+                    supabaseUrl,
+                    bucketName,
+                    fileName
+            );
 
         } catch (IOException e) {
-            throw new SupabaseUploadException("Failed to upload PDF to Supabase: " + e.getMessage(), e);
+
+            throw new SupabaseUploadException(
+                    "Failed to upload PDF to Supabase: "
+                            + e.getMessage(),
+                    e
+            );
         }
     }
 
-    public ReportResponse getReportByValidation(Long validationId) throws ReportGenerationException {
+    public ReportResponse getReportByValidation(
+            Long validationId
+    ) throws ReportGenerationException {
+
         AppUser user = getLoggedInUser();
 
-        Report report = reportRepository.findByIdAndUser(validationId, user)
-                .orElseThrow(() -> new ReportGenerationException("Report not found for this validation"));
+        Report report =
+                reportRepository.findByValidationIdAndUser(
+                                validationId,
+                                user
+                        )
+                        .orElseThrow(() ->
+                                new ReportGenerationException(
+                                        "Report not found for validation id: "
+                                                + validationId
+                                )
+                        );
 
         return ReportResponse.fromEntity(report);
     }
 
-    public ReportResponse getReportById(Long reportId) throws ReportGenerationException {
+    public ReportResponse getReportById(
+            Long reportId
+    ) throws ReportGenerationException {
+
         AppUser user = getLoggedInUser();
 
-        Report report = reportRepository.findByIdAndUser(reportId, user)
-                .orElseThrow(() -> new ReportGenerationException("Report not found"));
+        Report report =
+                reportRepository.findByIdAndUser(
+                                reportId,
+                                user
+                        )
+                        .orElseThrow(() ->
+                                new ReportGenerationException(
+                                        "Report not found with id: "
+                                                + reportId
+                                )
+                        );
 
         return ReportResponse.fromEntity(report);
     }
 
-    private String generateFileName(String startupName) {
-        String sanitized = startupName.replaceAll("[^a-zA-Z0-9-]", "_").toLowerCase();
-        String uuid = UUID.randomUUID().toString().substring(0, 8);
-        return String.format("reports/%s_%s_%d.pdf", sanitized, uuid, System.currentTimeMillis());
+    private String generateFileName(
+            String startupName
+    ) {
+
+        String sanitized =
+                startupName
+                        .replaceAll(
+                                "[^a-zA-Z0-9]",
+                                "_"
+                        )
+                        .toLowerCase();
+
+        String uuid =
+                UUID.randomUUID()
+                        .toString()
+                        .substring(0, 8);
+
+        return String.format(
+                "reports/%s_%s_%d.pdf",
+                sanitized,
+                uuid,
+                System.currentTimeMillis()
+        );
     }
 
-    private AppUser getLoggedInUser() throws ReportGenerationException {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+    private AppUser getLoggedInUser()
+            throws ReportGenerationException {
+
+        String email =
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication()
+                        .getName();
+
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ReportGenerationException("Logged-in user not found"));
+                .orElseThrow(() ->
+                        new ReportGenerationException(
+                                "Logged in user not found"
+                        )
+                );
     }
 }
